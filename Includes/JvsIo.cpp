@@ -324,6 +324,60 @@ int JvsIo::Jvs_Command_35_CoinAdditionOutput(uint8_t* data)
 	return 3;
 }
 
+int JvsIo::Jvs_Command_70_Namco(uint8_t* data)
+{
+	enum NamcoSpecific {
+		Nop = 0x00,
+		Read = 0x01,
+		UNK_ID = 0x02,
+		UNK_03 = 0x03,
+		UNK_04 = 0x04,
+		UNK_18 = 0x18,
+		UNK_22 = 0x22,
+	};
+
+	NamcoSpecific subcommand = static_cast<NamcoSpecific>(data[1]);
+
+	ResponseBuffer.push_back(ReportCode::Handled);
+
+	switch (subcommand) {
+		case NamcoSpecific::Read:
+			{
+				// Read back 8 bytes at address
+				uint8_t address_msb = data[2];
+				uint8_t address_lsb = data[3];
+
+				for (uint8_t i = 0; i < 8; i++) {
+					ResponseBuffer.push_back(0x00);
+				}
+			}
+			return 4;
+		case NamcoSpecific::UNK_ID:
+			{
+				// Attemps to read fixed memory, different for each device, send back example
+				uint8_t id[8] = {0x19, 0x97, 0x03, 0x05, 0x03, 0x19, 0x35, 0x29};
+				for (uint8_t i = 0; i < 8; i++) {
+					ResponseBuffer.push_back(id[i]);
+				}
+			}
+			return 2;
+		case NamcoSpecific::UNK_03:
+			// Attemps to read IO memory located 0xC00F, unknown
+			ResponseBuffer.push_back(0x19);
+			return 2;
+		case NamcoSpecific::UNK_04:
+			// Boards which don't support this reply 0xFF 0xFF, unknown good response
+			ResponseBuffer.push_back(0xFF);
+			ResponseBuffer.push_back(0xFF);
+			return 2;
+		case NamcoSpecific::UNK_18:
+			ResponseBuffer.push_back(0xFF);
+			return 8;
+		default:
+			return sizeof(data);
+	}
+}
+
 uint8_t JvsIo::GetByte(std::vector<uint8_t> &buffer)
 {
 	uint8_t value = buffer.at(0);
@@ -375,6 +429,7 @@ void JvsIo::HandlePacket(jvs_packet_header_t* header, std::vector<uint8_t>& pack
 			case 0x30: i += Jvs_Command_30_CoinSubtractionOutput(command_data); break;
 			case 0x32: i += Jvs_Command_32_GeneralPurposeOutput(command_data); break;
 			case 0x35: i += Jvs_Command_35_CoinAdditionOutput(command_data); break;
+			case 0x70: i += Jvs_Command_70_Namco(command_data); break;
 			default:
 				// Overwrite the verly-optimistic StatusCode::StatusOkay with Status::Unsupported command
 				// Don't process any further commands. Existing processed commands must still return their responses.
